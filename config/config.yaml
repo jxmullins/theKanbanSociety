@@ -1,0 +1,107 @@
+# The Council of Legends - Configuration
+# ======================================
+
+# Debate Settings
+debate:
+  default_rounds: 3
+  turn_timeout: 180  # seconds
+  max_response_words: 400
+  summarize_after_round: false
+
+# Execution Settings
+execution:
+  parallel_opening: false
+  retry_on_failure: true
+  max_retries: 2
+  retry_delay: 5  # seconds
+
+# Output Settings
+output:
+  format: markdown  # markdown, json, text
+  save_debates: true
+  debates_dir: ./debates
+  use_colors: true
+  verbose: false
+
+# Context Management
+context:
+  max_context_chars: 8000
+  include_full_history: false
+
+# Team Mode Settings
+team:
+  projects_dir: ./projects
+  default_checkpoint_level: all  # all, major, none
+  default_show_costs: false
+
+# Model Registry
+# Maps AI IDs to their provider and model configuration
+models:
+  claude:
+    provider: anthropic
+    model: claude-sonnet-4-5-20250929
+    display_name: Claude
+
+  claude-opus:
+    provider: anthropic
+    model: claude-opus-4-5-20250929
+    display_name: Claude Opus
+
+  gpt:
+    provider: openai
+    model: gpt-5.2
+    display_name: GPT
+
+  o3:
+    provider: openai
+    model: o3
+    display_name: O3
+
+  gemini:
+    provider: google
+    model: gemini-3-pro-preview
+    display_name: Gemini
+
+  gemini-flash:
+    provider: google
+    model: gemini-3-flash-preview
+    display_name: Gemini Flash
+
+  groq:
+    provider: groq
+    model: llama-4-maverick
+    display_name: Groq (Llama)
+
+  deepseek:
+    provider: deepseek
+    model: deepseek-chat
+    display_name: DeepSeek
+
+  mistral:
+    provider: mistral
+    model: mistral-large-2512
+    display_name: Mistral
+
+  grok:
+    provider: xai
+    model: grok-4-1-fast-reasoning
+    display_name: Grok
+
+  ollama:
+    provider: ollama
+    model: llama3.2
+    endpoint: http://localhost:11434
+    display_name: Ollama (Local)
+
+  lmstudio:
+    provider: lmstudio
+    model: local-model
+    endpoint: http://localhost:1234
+    display_name: LM Studio (Local)
+
+# Default Council Members
+# These AIs participate in debates by default
+default_council:
+  - claude
+  - gpt
+  - gemini

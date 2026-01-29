@@ -1,0 +1,1413 @@
+openapi: 3.1.0
+info:
+  title: Council of Legends API
+  description: |
+    REST API for the Council of Legends multi-AI debate and collaboration platform.
+
+    This API exposes functionality for:
+    - **Debates**: Orchestrate multi-AI debate sessions with collaborative, adversarial, or Socratic modes
+    - **Teams**: Manage team collaboration sessions with project management, task assignment, and artifact generation
+    - **Providers**: Query available AI providers and model configurations
+    - **Real-time Events**: WebSocket streaming for live session updates
+  version: 1.0.0
+  contact:
+    name: Council of Legends
+  license:
+    name: MIT
+
+servers:
+  - url: http://localhost:8080/api/v1
+    description: Local development server
+
+tags:
+  - name: debates
+    description: Multi-AI debate sessions
+  - name: teams
+    description: Team collaboration sessions
+  - name: providers
+    description: AI provider and model management
+  - name: config
+    description: Configuration endpoints
+  - name: health
+    description: Health and status checks
+
+paths:
+  # ============================================================================
+  # HEALTH ENDPOINTS
+  # ============================================================================
+  /health:
+    get:
+      tags: [health]
+      summary: API health check
+      description: Returns the health status of the API server
+      operationId: getHealth
+      responses:
+        '200':
+          description: Server is healthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+
+  /health/providers:
+    get:
+      tags: [health]
+      summary: Provider health check
+      description: Returns health status of all configured AI providers
+      operationId: getProviderHealth
+      responses:
+        '200':
+          description: Provider health status
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProviderHealthResponse'
+
+  # ============================================================================
+  # DEBATE ENDPOINTS
+  # ============================================================================
+  /debates:
+    post:
+      tags: [debates]
+      summary: Start a new debate
+      description: |
+        Creates and starts a new multi-AI debate session. The debate runs asynchronously
+        and its progress can be tracked via the returned session ID.
+      operationId: createDebate
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateDebateRequest'
+      responses:
+        '201':
+          description: Debate session created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DebateSession'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '503':
+          $ref: '#/components/responses/ProviderUnavailable'
+
+    get:
+      tags: [debates]
+      summary: List debate sessions
+      description: Returns a paginated list of debate sessions
+      operationId: listDebates
+      parameters:
+        - $ref: '#/components/parameters/limitParam'
+        - $ref: '#/components/parameters/offsetParam'
+        - name: status
+          in: query
+          description: Filter by session status
+          schema:
+            $ref: '#/components/schemas/SessionStatus'
+      responses:
+        '200':
+          description: List of debate sessions
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DebateListResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /debates/{debateId}:
+    get:
+      tags: [debates]
+      summary: Get debate session
+      description: Returns details of a specific debate session including current state and participants
+      operationId: getDebate
+      parameters:
+        - $ref: '#/components/parameters/debateIdParam'
+      responses:
+        '200':
+          description: Debate session details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DebateSession'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    delete:
+      tags: [debates]
+      summary: Cancel debate session
+      description: Cancels a running debate session
+      operationId: cancelDebate
+      parameters:
+        - $ref: '#/components/parameters/debateIdParam'
+      responses:
+        '204':
+          description: Debate cancelled successfully
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: Debate already completed or cancelled
+
+  /debates/{debateId}/transcript:
+    get:
+      tags: [debates]
+      summary: Get debate transcript
+      description: Returns the full transcript of a debate session
+      operationId: getDebateTranscript
+      parameters:
+        - $ref: '#/components/parameters/debateIdParam'
+        - name: format
+          in: query
+          description: Output format
+          schema:
+            type: string
+            enum: [json, markdown]
+            default: json
+      responses:
+        '200':
+          description: Debate transcript
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DebateTranscript'
+            text/markdown:
+              schema:
+                type: string
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  # ============================================================================
+  # TEAM ENDPOINTS
+  # ============================================================================
+  /teams:
+    post:
+      tags: [teams]
+      summary: Start a team session
+      description: |
+        Creates and starts a new team collaboration session. A project manager will be
+        selected (or assigned) to coordinate the work among team members.
+      operationId: createTeamSession
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateTeamRequest'
+      responses:
+        '201':
+          description: Team session created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TeamSession'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '503':
+          $ref: '#/components/responses/ProviderUnavailable'
+
+    get:
+      tags: [teams]
+      summary: List team sessions
+      description: Returns a paginated list of team sessions
+      operationId: listTeamSessions
+      parameters:
+        - $ref: '#/components/parameters/limitParam'
+        - $ref: '#/components/parameters/offsetParam'
+        - name: status
+          in: query
+          description: Filter by session status
+          schema:
+            $ref: '#/components/schemas/SessionStatus'
+        - name: phase
+          in: query
+          description: Filter by current phase
+          schema:
+            $ref: '#/components/schemas/TeamPhase'
+      responses:
+        '200':
+          description: List of team sessions
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TeamListResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /teams/{sessionId}:
+    get:
+      tags: [teams]
+      summary: Get team session
+      description: Returns details of a specific team session including current phase and progress
+      operationId: getTeamSession
+      parameters:
+        - $ref: '#/components/parameters/sessionIdParam'
+      responses:
+        '200':
+          description: Team session details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TeamSession'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    delete:
+      tags: [teams]
+      summary: Cancel team session
+      description: Cancels a running team session
+      operationId: cancelTeamSession
+      parameters:
+        - $ref: '#/components/parameters/sessionIdParam'
+      responses:
+        '204':
+          description: Team session cancelled successfully
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: Session already completed or cancelled
+
+  /teams/{sessionId}/plan:
+    get:
+      tags: [teams]
+      summary: Get work plan
+      description: Returns the project manager's work plan for the session
+      operationId: getTeamPlan
+      parameters:
+        - $ref: '#/components/parameters/sessionIdParam'
+      responses:
+        '200':
+          description: Work plan
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TeamPlan'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /teams/{sessionId}/artifacts:
+    get:
+      tags: [teams]
+      summary: List artifacts
+      description: Returns all artifacts generated by the team session
+      operationId: listArtifacts
+      parameters:
+        - $ref: '#/components/parameters/sessionIdParam'
+        - name: type
+          in: query
+          description: Filter by artifact type
+          schema:
+            $ref: '#/components/schemas/ArtifactType'
+      responses:
+        '200':
+          description: List of artifacts
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ArtifactListResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /teams/{sessionId}/artifacts/{artifactName}:
+    get:
+      tags: [teams]
+      summary: Get artifact content
+      description: Returns the content of a specific artifact
+      operationId: getArtifact
+      parameters:
+        - $ref: '#/components/parameters/sessionIdParam'
+        - name: artifactName
+          in: path
+          required: true
+          description: Name of the artifact
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Artifact content
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Artifact'
+            text/plain:
+              schema:
+                type: string
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /teams/{sessionId}/checkpoints:
+    get:
+      tags: [teams]
+      summary: List checkpoints
+      description: Returns all checkpoints for the team session
+      operationId: listCheckpoints
+      parameters:
+        - $ref: '#/components/parameters/sessionIdParam'
+        - name: approved
+          in: query
+          description: Filter by approval status
+          schema:
+            type: boolean
+      responses:
+        '200':
+          description: List of checkpoints
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CheckpointListResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /teams/{sessionId}/checkpoints/{checkpointId}/approve:
+    post:
+      tags: [teams]
+      summary: Approve checkpoint
+      description: Approves a pending checkpoint to continue session execution
+      operationId: approveCheckpoint
+      parameters:
+        - $ref: '#/components/parameters/sessionIdParam'
+        - name: checkpointId
+          in: path
+          required: true
+          description: Checkpoint ID
+          schema:
+            type: string
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ApproveCheckpointRequest'
+      responses:
+        '200':
+          description: Checkpoint approved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Checkpoint'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: Checkpoint already approved or rejected
+
+  /teams/{sessionId}/checkpoints/{checkpointId}/reject:
+    post:
+      tags: [teams]
+      summary: Reject checkpoint
+      description: Rejects a pending checkpoint with feedback
+      operationId: rejectCheckpoint
+      parameters:
+        - $ref: '#/components/parameters/sessionIdParam'
+        - name: checkpointId
+          in: path
+          required: true
+          description: Checkpoint ID
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RejectCheckpointRequest'
+      responses:
+        '200':
+          description: Checkpoint rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Checkpoint'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  # ============================================================================
+  # PROVIDER ENDPOINTS
+  # ============================================================================
+  /providers:
+    get:
+      tags: [providers]
+      summary: List providers
+      description: Returns all available AI providers
+      operationId: listProviders
+      responses:
+        '200':
+          description: List of providers
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProviderListResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /providers/{providerId}/health:
+    get:
+      tags: [providers]
+      summary: Check provider health
+      description: Returns the health status of a specific provider
+      operationId: checkProviderHealth
+      parameters:
+        - name: providerId
+          in: path
+          required: true
+          description: Provider identifier
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Provider health status
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProviderHealth'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /models:
+    get:
+      tags: [providers]
+      summary: List models
+      description: Returns all configured AI models
+      operationId: listModels
+      parameters:
+        - name: provider
+          in: query
+          description: Filter by provider
+          schema:
+            type: string
+      responses:
+        '200':
+          description: List of models
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ModelListResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /models/{modelId}:
+    get:
+      tags: [providers]
+      summary: Get model details
+      description: Returns details of a specific model configuration
+      operationId: getModel
+      parameters:
+        - name: modelId
+          in: path
+          required: true
+          description: Model identifier (AI ID)
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Model details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Model'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /models/{modelId}/test:
+    post:
+      tags: [providers]
+      summary: Test model
+      description: Sends a test prompt to verify model connectivity
+      operationId: testModel
+      parameters:
+        - name: modelId
+          in: path
+          required: true
+          description: Model identifier (AI ID)
+          schema:
+            type: string
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TestModelRequest'
+      responses:
+        '200':
+          description: Test result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TestModelResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '503':
+          $ref: '#/components/responses/ProviderUnavailable'
+
+  # ============================================================================
+  # CONFIGURATION ENDPOINTS
+  # ============================================================================
+  /config:
+    get:
+      tags: [config]
+      summary: Get configuration
+      description: Returns the current API configuration (non-sensitive values)
+      operationId: getConfig
+      responses:
+        '200':
+          description: Configuration values
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfigResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /config/defaults:
+    get:
+      tags: [config]
+      summary: Get default settings
+      description: Returns default settings for debates and team sessions
+      operationId: getDefaultSettings
+      responses:
+        '200':
+          description: Default settings
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DefaultSettingsResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+# ==============================================================================
+# COMPONENTS
+# ==============================================================================
+components:
+  # ============================================================================
+  # SECURITY SCHEMES
+  # ============================================================================
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: |
+        JWT-based authentication. Obtain a token from the authentication endpoint
+        and include it in the Authorization header.
+
+    apiKeyAuth:
+      type: apiKey
+      in: header
+      name: X-API-Key
+      description: |
+        API key authentication for server-to-server integrations.
+        Configure API keys in the server configuration.
+
+  # ============================================================================
+  # PARAMETERS
+  # ============================================================================
+  parameters:
+    debateIdParam:
+      name: debateId
+      in: path
+      required: true
+      description: Unique debate session identifier
+      schema:
+        type: string
+        format: uuid
+
+    sessionIdParam:
+      name: sessionId
+      in: path
+      required: true
+      description: Unique team session identifier
+      schema:
+        type: string
+        format: uuid
+
+    limitParam:
+      name: limit
+      in: query
+      description: Maximum number of items to return
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 20
+
+    offsetParam:
+      name: offset
+      in: query
+      description: Number of items to skip
+      schema:
+        type: integer
+        minimum: 0
+        default: 0
+
+  # ============================================================================
+  # RESPONSES
+  # ============================================================================
+  responses:
+    BadRequest:
+      description: Invalid request parameters
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+    Unauthorized:
+      description: Authentication required or invalid
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+    ProviderUnavailable:
+      description: AI provider is unavailable
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+  # ============================================================================
+  # SCHEMAS
+  # ============================================================================
+  schemas:
+    # --------------------------------------------------------------------------
+    # COMMON SCHEMAS
+    # --------------------------------------------------------------------------
+    ErrorResponse:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: object
+          required: [code, message]
+          properties:
+            code:
+              type: string
+              description: Error code
+              example: "INVALID_REQUEST"
+            message:
+              type: string
+              description: Human-readable error message
+              example: "Invalid debate topic: cannot be empty"
+            details:
+              type: object
+              additionalProperties: true
+              description: Additional error details
+
+    SessionStatus:
+      type: string
+      enum: [pending, running, completed, cancelled, failed]
+      description: Status of a session
+
+    Pagination:
+      type: object
+      properties:
+        total:
+          type: integer
+          description: Total number of items
+        limit:
+          type: integer
+          description: Maximum items per page
+        offset:
+          type: integer
+          description: Current offset
+        hasMore:
+          type: boolean
+          description: Whether more items exist
+
+    # --------------------------------------------------------------------------
+    # HEALTH SCHEMAS
+    # --------------------------------------------------------------------------
+    HealthResponse:
+      type: object
+      required: [status, version]
+      properties:
+        status:
+          type: string
+          enum: [healthy, degraded, unhealthy]
+        version:
+          type: string
+          example: "1.0.0"
+        uptime:
+          type: string
+          description: Server uptime duration
+          example: "2h30m15s"
+
+    ProviderHealthResponse:
+      type: object
+      required: [providers]
+      properties:
+        providers:
+          type: array
+          items:
+            $ref: '#/components/schemas/ProviderHealth'
+
+    ProviderHealth:
+      type: object
+      required: [id, name, status]
+      properties:
+        id:
+          type: string
+          example: "anthropic"
+        name:
+          type: string
+          example: "Anthropic"
+        status:
+          type: string
+          enum: [healthy, unhealthy, unknown]
+        latencyMs:
+          type: integer
+          description: Health check latency in milliseconds
+        error:
+          type: string
+          description: Error message if unhealthy
+
+    # --------------------------------------------------------------------------
+    # DEBATE SCHEMAS
+    # --------------------------------------------------------------------------
+    DebateMode:
+      type: string
+      enum: [collaborative, adversarial, socratic]
+      description: |
+        Debate mode:
+        - collaborative: Cooperative discussion seeking consensus
+        - adversarial: Competitive debate with opposing viewpoints
+        - socratic: Question-driven dialogue exploring ideas
+
+    CreateDebateRequest:
+      type: object
+      required: [topic]
+      properties:
+        topic:
+          type: string
+          minLength: 1
+          maxLength: 1000
+          description: The debate topic or question
+          example: "Should artificial general intelligence be pursued?"
+        mode:
+          $ref: '#/components/schemas/DebateMode'
+          default: collaborative
+        rounds:
+          type: integer
+          minimum: 1
+          maximum: 10
+          default: 3
+          description: Number of debate rounds
+        members:
+          type: array
+          items:
+            type: string
+          minItems: 2
+          maxItems: 10
+          description: AI participant IDs (uses default council if not specified)
+          example: ["claude", "gpt-4o", "gemini"]
+        stream:
+          type: boolean
+          default: false
+          description: Enable streaming responses via WebSocket
+        options:
+          type: object
+          properties:
+            maxResponseWords:
+              type: integer
+              minimum: 50
+              maximum: 2000
+              description: Maximum words per response
+            turnTimeout:
+              type: integer
+              minimum: 30
+              maximum: 600
+              description: Timeout per turn in seconds
+
+    DebateSession:
+      type: object
+      required: [id, topic, mode, status, members, createdAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        topic:
+          type: string
+        mode:
+          $ref: '#/components/schemas/DebateMode'
+        status:
+          $ref: '#/components/schemas/SessionStatus'
+        members:
+          type: array
+          items:
+            $ref: '#/components/schemas/DebateParticipant'
+        currentRound:
+          type: integer
+          description: Current round number (1-indexed)
+        totalRounds:
+          type: integer
+        currentPhase:
+          type: string
+          enum: [opening, rebuttal, synthesis, final]
+        createdAt:
+          type: string
+          format: date-time
+        startedAt:
+          type: string
+          format: date-time
+        completedAt:
+          type: string
+          format: date-time
+        error:
+          type: string
+          description: Error message if session failed
+
+    DebateParticipant:
+      type: object
+      required: [id, name]
+      properties:
+        id:
+          type: string
+          description: AI identifier
+          example: "claude"
+        name:
+          type: string
+          description: Display name
+          example: "Claude"
+        provider:
+          type: string
+          description: Provider name
+          example: "anthropic"
+
+    DebateListResponse:
+      type: object
+      required: [debates, pagination]
+      properties:
+        debates:
+          type: array
+          items:
+            $ref: '#/components/schemas/DebateSession'
+        pagination:
+          $ref: '#/components/schemas/Pagination'
+
+    DebateTranscript:
+      type: object
+      required: [id, topic, mode, members, rounds]
+      properties:
+        id:
+          type: string
+          format: uuid
+        topic:
+          type: string
+        mode:
+          $ref: '#/components/schemas/DebateMode'
+        members:
+          type: array
+          items:
+            type: string
+        startTime:
+          type: string
+          format: date-time
+        endTime:
+          type: string
+          format: date-time
+        rounds:
+          type: array
+          items:
+            type: array
+            items:
+              $ref: '#/components/schemas/DebateResponse'
+        synthesis:
+          type: array
+          items:
+            $ref: '#/components/schemas/DebateResponse'
+        finalVerdict:
+          type: string
+          description: The council's combined final verdict
+
+    DebateResponse:
+      type: object
+      required: [aiId, aiName, content, round, phase, timestamp]
+      properties:
+        aiId:
+          type: string
+        aiName:
+          type: string
+        content:
+          type: string
+        round:
+          type: integer
+        phase:
+          type: string
+          enum: [opening, rebuttal, synthesis]
+        timestamp:
+          type: string
+          format: date-time
+
+    # --------------------------------------------------------------------------
+    # TEAM SCHEMAS
+    # --------------------------------------------------------------------------
+    WorkMode:
+      type: string
+      enum: [pair_programming, consultation, round_robin, divide_conquer, free_form]
+      description: |
+        Team work mode:
+        - pair_programming: Two AIs collaborate on same artifact
+        - consultation: Lead AI with others providing input
+        - round_robin: Sequential contributions from each member
+        - divide_conquer: Split task into parallel subtasks
+        - free_form: Open collaboration
+
+    TeamPhase:
+      type: string
+      enum: [analysis, planning, execution, review, delivery, complete]
+
+    CheckpointLevel:
+      type: string
+      enum: [all, major, none]
+      description: |
+        Checkpoint approval level:
+        - all: Approve all decisions
+        - major: Only critical decisions
+        - none: No approval needed
+
+    CreateTeamRequest:
+      type: object
+      required: [task]
+      properties:
+        task:
+          type: string
+          minLength: 1
+          maxLength: 5000
+          description: Description of the work to complete
+          example: "Build a REST API for user authentication"
+        members:
+          type: array
+          items:
+            type: string
+          minItems: 1
+          maxItems: 10
+          description: Team member AI IDs (PM will be auto-selected if not specified)
+          example: ["claude", "gpt-4o", "gemini"]
+        pm:
+          type: string
+          description: Force a specific AI as project manager
+        mode:
+          $ref: '#/components/schemas/WorkMode'
+          description: Force a specific work mode (PM decides if not specified)
+        includeArbiter:
+          type: boolean
+          default: false
+          description: Add an additional AI as arbiter/reviewer
+        checkpointLevel:
+          $ref: '#/components/schemas/CheckpointLevel'
+          default: all
+        showCosts:
+          type: boolean
+          default: false
+          description: Include token/cost usage in responses
+
+    TeamSession:
+      type: object
+      required: [id, task, status, phase, createdAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        task:
+          type: string
+        status:
+          $ref: '#/components/schemas/SessionStatus'
+        phase:
+          $ref: '#/components/schemas/TeamPhase'
+        pm:
+          $ref: '#/components/schemas/TeamMember'
+        mode:
+          $ref: '#/components/schemas/WorkMode'
+        members:
+          type: array
+          items:
+            $ref: '#/components/schemas/TeamMember'
+        plan:
+          $ref: '#/components/schemas/TeamPlan'
+        artifactCount:
+          type: integer
+        checkpointsPending:
+          type: integer
+        createdAt:
+          type: string
+          format: date-time
+        startedAt:
+          type: string
+          format: date-time
+        completedAt:
+          type: string
+          format: date-time
+        projectDir:
+          type: string
+          description: Directory where artifacts are saved
+        error:
+          type: string
+
+    TeamMember:
+      type: object
+      required: [id, name]
+      properties:
+        id:
+          type: string
+          example: "claude"
+        name:
+          type: string
+          example: "Claude"
+        role:
+          type: string
+          description: Assigned role in the team
+          example: "Backend Developer"
+        provider:
+          type: string
+          example: "anthropic"
+
+    TeamListResponse:
+      type: object
+      required: [sessions, pagination]
+      properties:
+        sessions:
+          type: array
+          items:
+            $ref: '#/components/schemas/TeamSession'
+        pagination:
+          $ref: '#/components/schemas/Pagination'
+
+    TeamPlan:
+      type: object
+      required: [summary, steps]
+      properties:
+        summary:
+          type: string
+          description: Brief 1-2 sentence summary of the plan
+        steps:
+          type: array
+          items:
+            $ref: '#/components/schemas/PlanStep'
+        assignments:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              type: string
+          description: Map of AI ID to assigned step IDs
+
+    PlanStep:
+      type: object
+      required: [id, description, status]
+      properties:
+        id:
+          type: string
+        description:
+          type: string
+        assignedTo:
+          type: string
+          description: AI ID assigned to this step
+        dependsOn:
+          type: array
+          items:
+            type: string
+          description: IDs of prerequisite steps
+        status:
+          type: string
+          enum: [pending, in_progress, completed, blocked]
+
+    # --------------------------------------------------------------------------
+    # ARTIFACT SCHEMAS
+    # --------------------------------------------------------------------------
+    ArtifactType:
+      type: string
+      enum: [code, document, config, test, other]
+
+    Artifact:
+      type: object
+      required: [name, type, content, createdBy, createdAt]
+      properties:
+        name:
+          type: string
+          description: File name
+          example: "auth_handler.go"
+        type:
+          $ref: '#/components/schemas/ArtifactType'
+        content:
+          type: string
+          description: Full content of the artifact
+        description:
+          type: string
+          description: Description of what the artifact is
+        createdBy:
+          type: string
+          description: AI ID that created this artifact
+        createdAt:
+          type: string
+          format: date-time
+        path:
+          type: string
+          description: File path where artifact was saved
+
+    ArtifactListResponse:
+      type: object
+      required: [artifacts]
+      properties:
+        artifacts:
+          type: array
+          items:
+            $ref: '#/components/schemas/Artifact'
+        totalSize:
+          type: integer
+          description: Total size of all artifacts in bytes
+
+    # --------------------------------------------------------------------------
+    # CHECKPOINT SCHEMAS
+    # --------------------------------------------------------------------------
+    CheckpointType:
+      type: string
+      enum: [plan_approval, milestone, review, delivery]
+
+    Checkpoint:
+      type: object
+      required: [id, type, description, phase, createdAt, approved]
+      properties:
+        id:
+          type: string
+        type:
+          $ref: '#/components/schemas/CheckpointType'
+        description:
+          type: string
+        phase:
+          $ref: '#/components/schemas/TeamPhase'
+        createdAt:
+          type: string
+          format: date-time
+        approved:
+          type: boolean
+        approvedAt:
+          type: string
+          format: date-time
+        rejectedAt:
+          type: string
+          format: date-time
+        notes:
+          type: string
+        data:
+          type: object
+          additionalProperties: true
+          description: Checkpoint-specific data
+
+    CheckpointListResponse:
+      type: object
+      required: [checkpoints]
+      properties:
+        checkpoints:
+          type: array
+          items:
+            $ref: '#/components/schemas/Checkpoint'
+
+    ApproveCheckpointRequest:
+      type: object
+      properties:
+        notes:
+          type: string
+          maxLength: 1000
+          description: Optional approval notes
+
+    RejectCheckpointRequest:
+      type: object
+      required: [reason]
+      properties:
+        reason:
+          type: string
+          minLength: 1
+          maxLength: 2000
+          description: Reason for rejection
+
+    # --------------------------------------------------------------------------
+    # PROVIDER SCHEMAS
+    # --------------------------------------------------------------------------
+    Provider:
+      type: object
+      required: [id, name]
+      properties:
+        id:
+          type: string
+          example: "anthropic"
+        name:
+          type: string
+          example: "Anthropic"
+        description:
+          type: string
+        supportsStreaming:
+          type: boolean
+        models:
+          type: array
+          items:
+            type: string
+          description: List of model IDs using this provider
+
+    ProviderListResponse:
+      type: object
+      required: [providers]
+      properties:
+        providers:
+          type: array
+          items:
+            $ref: '#/components/schemas/Provider'
+
+    Model:
+      type: object
+      required: [id, provider, displayName]
+      properties:
+        id:
+          type: string
+          description: AI identifier used in API calls
+          example: "claude"
+        provider:
+          type: string
+          example: "anthropic"
+        model:
+          type: string
+          description: Provider-specific model identifier
+          example: "claude-3-5-sonnet-20241022"
+        displayName:
+          type: string
+          example: "Claude"
+        description:
+          type: string
+        capabilities:
+          type: array
+          items:
+            type: string
+          example: ["streaming", "function_calling"]
+
+    ModelListResponse:
+      type: object
+      required: [models]
+      properties:
+        models:
+          type: array
+          items:
+            $ref: '#/components/schemas/Model'
+
+    TestModelRequest:
+      type: object
+      properties:
+        prompt:
+          type: string
+          default: "Hello, please respond with 'OK' to confirm you're working."
+          description: Test prompt to send
+
+    TestModelResponse:
+      type: object
+      required: [success, model]
+      properties:
+        success:
+          type: boolean
+        model:
+          type: string
+          description: Model that responded
+        response:
+          type: string
+          description: Model's response
+        latencyMs:
+          type: integer
+          description: Response latency in milliseconds
+        tokensUsed:
+          type: integer
+        error:
+          type: string
+
+    # --------------------------------------------------------------------------
+    # CONFIG SCHEMAS
+    # --------------------------------------------------------------------------
+    ConfigResponse:
+      type: object
+      properties:
+        debate:
+          $ref: '#/components/schemas/DebateConfig'
+        team:
+          $ref: '#/components/schemas/TeamConfigResponse'
+        defaultCouncil:
+          type: array
+          items:
+            type: string
+          description: Default AI participants for debates
+
+    DebateConfig:
+      type: object
+      properties:
+        defaultRounds:
+          type: integer
+        turnTimeout:
+          type: integer
+        maxResponseWords:
+          type: integer
+
+    TeamConfigResponse:
+      type: object
+      properties:
+        projectsDir:
+          type: string
+        defaultCheckpointLevel:
+          $ref: '#/components/schemas/CheckpointLevel'
+
+    DefaultSettingsResponse:
+      type: object
+      properties:
+        debate:
+          type: object
+          properties:
+            mode:
+              $ref: '#/components/schemas/DebateMode'
+            rounds:
+              type: integer
+            maxResponseWords:
+              type: integer
+        team:
+          type: object
+          properties:
+            checkpointLevel:
+              $ref: '#/components/schemas/CheckpointLevel'
+            includeArbiter:
+              type: boolean
+
+# ==============================================================================
+# SECURITY (applied globally)
+# ==============================================================================
+security:
+  - bearerAuth: []
+  - apiKeyAuth: []

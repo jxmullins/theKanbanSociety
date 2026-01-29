@@ -1,0 +1,36 @@
+# Go binaries (at root level only)
+/council
+/team
+/assess
+/testcli
+
+# Temporary files
+tmp/
+*.tmp
+*.err
+
+# Environment and secrets
+.env
+.env.*
+*.pem
+*.key
+!*.key.example
+
+# OS files
+.DS_Store
+
+# Editor files
+*.swp
+*.swo
+*~
+
+# Debate outputs (optional - uncomment to ignore)
+# debates/
+
+# Team project outputs (local test/debug data)
+projects/
+
+# Log files
+logs/*.log
+logs/*.jsonl
+!logs/.gitkeep
