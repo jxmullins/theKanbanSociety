@@ -451,7 +451,7 @@ func (r *Runner) saveTranscript(opts Options, transcript *Transcript) error {
 	if err != nil {
 		return fmt.Errorf("resolving file path: %w", err)
 	}
-	if !strings.HasPrefix(absPath, absDir+string(filepath.Separator)) {
+	if !strings.HasPrefix(absPath, absDir+string(filepath.Separator)) && absPath != absDir {
 		return fmt.Errorf("path traversal detected in output path")
 	}
 
