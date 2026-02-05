@@ -299,7 +299,7 @@ func runAssessment(cmd *cobra.Command, args []string) error {
 	}
 
 	// Save results
-	if err := os.MkdirAll(outputDir, 0755); err != nil {
+	if err := os.MkdirAll(outputDir, 0750); err != nil {
 		return err
 	}
 
@@ -311,7 +311,7 @@ func runAssessment(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	if err := os.WriteFile(filename, data, 0644); err != nil {
+	if err := os.WriteFile(filename, data, 0640); err != nil {
 		return err
 	}
 
