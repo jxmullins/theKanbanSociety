@@ -1,0 +1,10 @@
+{
+  "name": "theKanbanSociety",
+  "description": "",
+  "status": "active",
+  "status_override": null,
+  "category": "personal",
+  "tech": [
+    "go"
+  ]
+}
