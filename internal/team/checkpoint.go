@@ -123,7 +123,7 @@ func (m *CheckpointManager) Save() error {
 		return fmt.Errorf("marshaling checkpoints: %w", err)
 	}
 
-	if err := os.WriteFile(path, data, 0644); err != nil {
+	if err := os.WriteFile(path, data, 0640); err != nil {
 		return fmt.Errorf("writing checkpoints: %w", err)
 	}
 
@@ -254,7 +254,7 @@ func (t *MilestoneTracker) Save() error {
 		return fmt.Errorf("marshaling milestones: %w", err)
 	}
 
-	if err := os.WriteFile(path, data, 0644); err != nil {
+	if err := os.WriteFile(path, data, 0640); err != nil {
 		return fmt.Errorf("writing milestones: %w", err)
 	}
 

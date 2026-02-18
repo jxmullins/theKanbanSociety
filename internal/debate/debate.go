@@ -415,12 +415,15 @@ Write this as a unified council verdict, not as an individual opinion.`, context
 }
 
 func (r *Runner) saveTranscript(opts Options, transcript *Transcript) error {
-	// Create output directory
-	if err := os.MkdirAll(opts.OutputDir, 0755); err != nil {
+	// Validate and clean output directory path
+	cleanDir := filepath.Clean(opts.OutputDir)
+	
+	// Create output directory with restricted permissions
+	if err := os.MkdirAll(cleanDir, 0750); err != nil {
 		return err
 	}
 
-	// Generate filename
+	// Generate filename with sanitized topic
 	timestamp := transcript.StartTime.Format("2006-01-02_15-04-05")
 	sanitizedTopic := strings.Map(func(r rune) rune {
 		if r == ' ' {
@@ -435,7 +438,22 @@ func (r *Runner) saveTranscript(opts Options, transcript *Transcript) error {
 		sanitizedTopic = sanitizedTopic[:50]
 	}
 
-	filename := filepath.Join(opts.OutputDir, fmt.Sprintf("%s_%s.md", timestamp, sanitizedTopic))
+	// Ensure filename is safe
+	safeFilename := fmt.Sprintf("%s_%s.md", timestamp, sanitizedTopic)
+	filename := filepath.Join(cleanDir, safeFilename)
+	
+	// Verify the final path is within the output directory
+	absDir, err := filepath.Abs(cleanDir)
+	if err != nil {
+		return fmt.Errorf("resolving output directory: %w", err)
+	}
+	absPath, err := filepath.Abs(filename)
+	if err != nil {
+		return fmt.Errorf("resolving file path: %w", err)
+	}
+	if !strings.HasPrefix(absPath, absDir+string(filepath.Separator)) && absPath != absDir {
+		return fmt.Errorf("path traversal detected in output path")
+	}
 
 	// Build markdown content
 	var content strings.Builder
@@ -465,5 +483,5 @@ func (r *Runner) saveTranscript(opts Options, transcript *Transcript) error {
 	content.WriteString(transcript.Final)
 	content.WriteString("\n")
 
-	return os.WriteFile(filename, []byte(content.String()), 0644)
+	return os.WriteFile(filename, []byte(content.String()), 0640)
 }

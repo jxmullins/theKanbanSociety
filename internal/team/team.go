@@ -214,10 +214,12 @@ func (r *Runner) Run(ctx context.Context, opts Options) error {
 		}
 	}
 
-	// Setup project directory
+	// Setup project directory with validation
 	if opts.OutputDir != "" {
-		session.ProjectDir = opts.OutputDir
-		if err := os.MkdirAll(session.ProjectDir, 0755); err != nil {
+		// Clean and validate the output directory path
+		cleanDir := filepath.Clean(opts.OutputDir)
+		session.ProjectDir = cleanDir
+		if err := os.MkdirAll(session.ProjectDir, 0750); err != nil {
 			return fmt.Errorf("creating project directory: %w", err)
 		}
 	}
@@ -445,7 +447,7 @@ func (r *Runner) deliver(ctx context.Context, session *Session, opts Options) er
 	// Save session summary
 	summaryPath := filepath.Join(session.ProjectDir, "SESSION_SUMMARY.md")
 	summary := r.generateSessionSummary(session)
-	if err := os.WriteFile(summaryPath, []byte(summary), 0644); err != nil {
+	if err := os.WriteFile(summaryPath, []byte(summary), 0640); err != nil {
 		fmt.Printf("Warning: failed to save summary: %v\n", err)
 	} else {
 		fmt.Printf("Saved: %s\n", summaryPath)

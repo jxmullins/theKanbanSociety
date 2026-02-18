@@ -23,6 +23,23 @@ type Request struct {
 	Temperature  float64
 }
 
+// MaxPromptLength is the maximum allowed length for prompts to prevent DOS attacks
+const MaxPromptLength = 1000000 // 1MB
+
+// Validate checks if the request is valid
+func (r *Request) Validate() error {
+	if len(r.Prompt) > MaxPromptLength {
+		return fmt.Errorf("prompt too long: %d bytes (max: %d)", len(r.Prompt), MaxPromptLength)
+	}
+	if len(r.SystemPrompt) > MaxPromptLength {
+		return fmt.Errorf("system prompt too long: %d bytes (max: %d)", len(r.SystemPrompt), MaxPromptLength)
+	}
+	if r.Temperature < 0 || r.Temperature > 2 {
+		return fmt.Errorf("temperature must be between 0 and 2")
+	}
+	return nil
+}
+
 // Response holds the result of an AI invocation.
 type Response struct {
 	Content      string

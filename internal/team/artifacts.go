@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 )
 
@@ -43,12 +44,32 @@ func NewArtifact(name string, artifactType ArtifactType, content, description, c
 
 // Save writes the artifact to the specified directory.
 func (a *Artifact) Save(dir string) error {
-	if err := os.MkdirAll(dir, 0755); err != nil {
+	if err := os.MkdirAll(dir, 0750); err != nil {
 		return fmt.Errorf("creating directory: %w", err)
 	}
 
-	path := filepath.Join(dir, a.Name)
-	if err := os.WriteFile(path, []byte(a.Content), 0644); err != nil {
+	// Sanitize filename to prevent path traversal
+	safeName := filepath.Base(filepath.Clean(a.Name))
+	if safeName == "." || safeName == ".." || safeName == "" {
+		return fmt.Errorf("invalid artifact name: %s", a.Name)
+	}
+
+	path := filepath.Join(dir, safeName)
+	
+	// Verify the final path is within the target directory
+	absDir, err := filepath.Abs(dir)
+	if err != nil {
+		return fmt.Errorf("resolving directory path: %w", err)
+	}
+	absPath, err := filepath.Abs(path)
+	if err != nil {
+		return fmt.Errorf("resolving file path: %w", err)
+	}
+	if !strings.HasPrefix(absPath, absDir+string(filepath.Separator)) && absPath != absDir {
+		return fmt.Errorf("path traversal detected: artifact path outside target directory")
+	}
+
+	if err := os.WriteFile(path, []byte(a.Content), 0640); err != nil {
 		return fmt.Errorf("writing file: %w", err)
 	}
 

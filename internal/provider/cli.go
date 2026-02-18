@@ -54,6 +54,11 @@ func (p *CLIProvider) Models() []string {
 
 // Invoke calls the CLI and returns the response.
 func (p *CLIProvider) Invoke(ctx context.Context, req Request) (*Response, error) {
+	// Validate request
+	if err := req.Validate(); err != nil {
+		return nil, fmt.Errorf("invalid request: %w", err)
+	}
+
 	args := append([]string{}, p.args...)
 
 	// Add system prompt if supported and provided
@@ -86,6 +91,11 @@ func (p *CLIProvider) Invoke(ctx context.Context, req Request) (*Response, error
 
 // Stream calls the CLI and streams the response line by line.
 func (p *CLIProvider) Stream(ctx context.Context, req Request) (<-chan StreamChunk, error) {
+	// Validate request
+	if err := req.Validate(); err != nil {
+		return nil, fmt.Errorf("invalid request: %w", err)
+	}
+
 	args := append([]string{}, p.args...)
 
 	// Add system prompt if supported and provided
@@ -145,6 +155,11 @@ func (p *CLIProvider) HealthCheck(ctx context.Context) error {
 }
 
 // NewClaudeCLIProvider creates a provider using the Claude Code CLI.
+// 
+// Security Note: Uses --dangerously-skip-permissions flag which bypasses
+// Claude CLI's normal permission prompts. This is necessary for automation
+// but means the CLI will execute without user confirmation. Only use in
+// trusted environments and carefully review tasks before execution.
 func NewClaudeCLIProvider() *CLIProvider {
 	return NewCLIProvider(CLIProviderConfig{
 		Name:       "claude-cli",
@@ -157,6 +172,9 @@ func NewClaudeCLIProvider() *CLIProvider {
 }
 
 // NewGeminiCLIProvider creates a provider using the Gemini CLI.
+//
+// Security Note: Uses --yolo flag which may bypass certain safety checks.
+// Review the gemini CLI documentation for security implications.
 func NewGeminiCLIProvider() *CLIProvider {
 	return NewCLIProvider(CLIProviderConfig{
 		Name:       "gemini-cli",
