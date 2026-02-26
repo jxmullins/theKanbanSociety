@@ -83,6 +83,11 @@ type ollamaErrorResponse struct {
 
 // Invoke sends a request to the Ollama API and returns the complete response.
 func (p *OllamaProvider) Invoke(ctx context.Context, req Request) (*Response, error) {
+	// Validate request
+	if err := req.Validate(); err != nil {
+		return nil, fmt.Errorf("invalid request: %w", err)
+	}
+
 	messages := []ollamaMessage{}
 	if req.SystemPrompt != "" {
 		messages = append(messages, ollamaMessage{Role: "system", Content: req.SystemPrompt})
@@ -141,6 +146,11 @@ func (p *OllamaProvider) Invoke(ctx context.Context, req Request) (*Response, er
 
 // Stream sends a request to the Ollama API and returns a channel of response chunks.
 func (p *OllamaProvider) Stream(ctx context.Context, req Request) (<-chan StreamChunk, error) {
+	// Validate request
+	if err := req.Validate(); err != nil {
+		return nil, fmt.Errorf("invalid request: %w", err)
+	}
+
 	messages := []ollamaMessage{}
 	if req.SystemPrompt != "" {
 		messages = append(messages, ollamaMessage{Role: "system", Content: req.SystemPrompt})

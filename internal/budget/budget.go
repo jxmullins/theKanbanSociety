@@ -278,7 +278,7 @@ func (t *Tracker) SaveToFile(path string) error {
 		return err
 	}
 
-	return os.WriteFile(path, data, 0644)
+	return os.WriteFile(path, data, 0640)
 }
 
 // LoadFromFile loads usage data from a JSON file.

@@ -97,6 +97,11 @@ type googleErrorResponse struct {
 
 // Invoke sends a request to the Google Generative AI API and returns the complete response.
 func (p *GoogleProvider) Invoke(ctx context.Context, req Request) (*Response, error) {
+	// Validate request
+	if err := req.Validate(); err != nil {
+		return nil, fmt.Errorf("invalid request: %w", err)
+	}
+
 	if err := p.CheckAPIKeyRequired(); err != nil {
 		return nil, err
 	}
@@ -148,6 +153,11 @@ func (p *GoogleProvider) Invoke(ctx context.Context, req Request) (*Response, er
 
 // Stream sends a request to the Google Generative AI API and returns a channel of response chunks.
 func (p *GoogleProvider) Stream(ctx context.Context, req Request) (<-chan StreamChunk, error) {
+	// Validate request
+	if err := req.Validate(); err != nil {
+		return nil, fmt.Errorf("invalid request: %w", err)
+	}
+
 	if err := p.CheckAPIKeyRequired(); err != nil {
 		return nil, err
 	}
